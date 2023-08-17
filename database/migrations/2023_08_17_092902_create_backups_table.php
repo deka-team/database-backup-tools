@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('disk', 50)->nullable()->index();
             $table->string('name')->nullable();
             $table->mediumText('path')->nullable();
+            $table->double('size')->nullable();
             $table->json('meta')->nullable();
             $table->timestamps();
         });

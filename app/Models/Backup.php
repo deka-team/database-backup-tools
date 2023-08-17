@@ -17,11 +17,13 @@ class Backup extends Model
         'name',
         'disk',
         'path',
+        'size',
         'meta',
     ];
 
     protected $casts = [
-        'meta' => 'json'
+        'size' => 'float',
+        'meta' => 'json',
     ];
 
     public function database(): BelongsTo
@@ -35,6 +37,31 @@ class Backup extends Model
 
         return Attribute::make(
             get: fn() => $url,
+        );
+    }
+
+    public function readableSize(): Attribute
+    {
+        $size = $this->size;
+        $b = $size;
+        $kb = round($size / 1024, 1);
+        $mb = round($kb / 1024, 1);
+        $gb = round($mb / 1024, 1);
+
+        $result = null;
+
+        if ($kb == 0) {
+            $result = $b . " bytes";
+        } else if ($mb == 0) {
+            $result = $kb . "KB";
+        } else if ($gb == 0) {
+            $result = $mb . "MB";
+        } else {
+            $result = $gb . "GB";
+        }
+
+        return Attribute::make(
+            get: fn () => $result,
         );
     }
 }

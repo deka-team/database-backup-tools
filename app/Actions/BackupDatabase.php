@@ -43,6 +43,9 @@ class BackupDatabase
         $output = Process::run($command);
 
         if($output->successful()){
+
+            $backupSize = $storage->size($backupPath);
+
             $database = Database::firstOrCreate([
                 'name' => $dbName
             ]);
@@ -51,6 +54,7 @@ class BackupDatabase
                 'name' => $backupName,
                 'path' => $backupPath,
                 'disk' => $backupDisk,
+                'size' => $backupSize,
             ]);
 
             $database->touch();

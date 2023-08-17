@@ -34,6 +34,8 @@ class BackupResource extends Resource
             ->recordUrl(null)
             ->columns([
                 Tables\Columns\TextColumn::make('name'),
+                Tables\Columns\TextColumn::make('readableSize')
+                    ->label('Size'),
             ])
             ->filters([
                 //
