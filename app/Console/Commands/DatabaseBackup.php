@@ -28,6 +28,6 @@ class DatabaseBackup extends Command
     {
         $output = BackupDatabase::backup($this->argument('name'));
 
-        dd($output);
+        return $output;
     }
 }
