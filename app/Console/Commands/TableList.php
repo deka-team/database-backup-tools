@@ -2,36 +2,34 @@
 
 namespace App\Console\Commands;
 
-use App\Actions\FetchDatabase;
+use App\Actions\FetchTable;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
-class DatabaseList extends Command
+class TableList extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'db:list';
+    protected $signature = 'db:table-list {name}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'List Available DB';
+    protected $description = 'List Tables From a database';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $output = FetchDatabase::fetch();
+        $dbName = $this->argument('name');
+        $output = FetchTable::fetch($dbName);
 
-        foreach($output as $name){
+        foreach ($output as $name) {
             $this->info($name);
         }
 
