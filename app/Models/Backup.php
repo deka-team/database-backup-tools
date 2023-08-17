@@ -18,10 +18,12 @@ class Backup extends Model
         'disk',
         'path',
         'size',
+        'is_active',
         'meta',
     ];
 
     protected $casts = [
+        'is_active' => 'bool',
         'size' => 'float',
         'meta' => 'json',
     ];

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('host')->nullable();
             $table->string('username')->nullable();
             $table->string('password')->nullable();
+            $table->tinyInteger('is_active')->default(1);
             $table->json('meta')->nullable();
             $table->timestamps();
         });
