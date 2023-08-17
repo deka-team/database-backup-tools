@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\FormatFileSize;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,26 +45,8 @@ class Backup extends Model
 
     public function readableSize(): Attribute
     {
-        $size = $this->size;
-        $b = $size;
-        $kb = round($size / 1024, 1);
-        $mb = round($kb / 1024, 1);
-        $gb = round($mb / 1024, 1);
-
-        $result = null;
-
-        if ($kb == 0) {
-            $result = $b . " bytes";
-        } else if ($mb == 0) {
-            $result = $kb . "KB";
-        } else if ($gb == 0) {
-            $result = $mb . "MB";
-        } else {
-            $result = $gb . "GB";
-        }
-
         return Attribute::make(
-            get: fn () => $result,
+            get: fn () => FormatFileSize::format($this->size),
         );
     }
 }

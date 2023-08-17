@@ -3,16 +3,19 @@
 namespace App\Filament\Resources;
 
 use App\Actions\BackupDatabase;
+use App\Actions\FormatFileSize;
 use App\Filament\Resources\DatabaseResource\Pages;
 use App\Filament\Resources\DatabaseResource\RelationManagers;
+use App\Models\Backup;
 use App\Models\Database;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -44,6 +47,14 @@ class DatabaseResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('size')
+                    ->getStateUsing(fn(Model $record) => $record->backups?->sum('size'))
+                    ->formatStateUsing(fn (null|string $state) => FormatFileSize::format($state))
+                    ->summarize(
+                        Summarizer::make()
+                            ->using(fn (Builder $query) => Backup::whereIn('database_id', $query->pluck('id'))->sum('size'))
+                            ->formatStateUsing(fn (null|string $state) => FormatFileSize::format($state))
+                    ),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

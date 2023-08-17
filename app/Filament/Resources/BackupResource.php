@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Actions\FormatFileSize;
 use App\Filament\Resources\BackupResource\Pages;
 use App\Filament\Resources\BackupResource\RelationManagers;
 use App\Models\Backup;
@@ -9,8 +10,10 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -35,7 +38,12 @@ class BackupResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name'),
                 Tables\Columns\TextColumn::make('readableSize')
-                    ->label('Size'),
+                    ->label('Size')
+                    ->summarize(
+                        Summarizer::make()
+                            ->using(fn(Builder $query) => $query->sum('size'))
+                            ->formatStateUsing(fn(null|string $state) => FormatFileSize::format($state))
+                    ),
             ])
             ->filters([
                 //
