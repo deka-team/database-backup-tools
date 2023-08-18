@@ -51,10 +51,13 @@ class BackupResource extends Resource
             ->actions([
                 Tables\Actions\Action::make('download')
                     ->url(fn (Model $record) => $record?->url, shouldOpenInNewTab: true)
-                    ->icon('heroicon-o-arrow-down-tray')
+                    ->icon('heroicon-o-arrow-down-tray'),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\DeleteAction::make(),
+                ]),
             ])
             ->bulkActions([
-                
+                Tables\Actions\DeleteBulkAction::make(),
             ])
             ->emptyStateActions([
                 

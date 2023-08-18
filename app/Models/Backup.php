@@ -49,4 +49,18 @@ class Backup extends Model
             get: fn () => FormatFileSize::format($this->size),
         );
     }
+
+    public static function boot(): void
+    {
+        parent::boot();
+
+        static::deleting(function($model){
+            /** Delete File Before Record Deleted */
+            $storage = Storage::disk($model->disk);
+
+            if($storage->exists($model->path)){
+                $storage->delete($model->path);
+            }
+        });
+    }
 }
