@@ -76,7 +76,9 @@ class DatabaseResource extends Resource
                                 ->title('Backup Successfully')
                                 ->success()
                                 ->send();
-                        })->icon('heroicon-o-bolt'),
+                        })
+                        ->icon('heroicon-o-bolt')
+                        ->requiresConfirmation(),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make(),
                 ]),
