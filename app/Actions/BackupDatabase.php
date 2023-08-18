@@ -60,7 +60,7 @@ class BackupDatabase
 
             $database->touch();
 
-            foreach($database->backups()->oldest()->get() as $index => $backup){
+            foreach($database->backups()->latest()->get() as $index => $backup){
                 if($index >= 3){
                     $backup->delete();
                 }
