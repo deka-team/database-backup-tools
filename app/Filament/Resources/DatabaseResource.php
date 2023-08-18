@@ -46,7 +46,8 @@ class DatabaseResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('size')
                     ->getStateUsing(fn(Model $record) => $record->backups?->sum('size'))
                     ->formatStateUsing(fn (null|string $state) => FormatFileSize::format($state))
@@ -62,7 +63,7 @@ class DatabaseResource extends Resource
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->filters([
                 //
@@ -92,11 +93,11 @@ class DatabaseResource extends Resource
                 Tables\Actions\CreateAction::make(),
             ]);
     }
-    
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ManageDatabases::route('/'),
         ];
-    }    
+    }
 }

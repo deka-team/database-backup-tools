@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -36,14 +37,21 @@ class BackupResource extends Resource
         return $table
             ->recordUrl(null)
             ->columns([
-                Tables\Columns\TextColumn::make('name'),
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('readableSize')
                     ->label('Size')
                     ->summarize(
                         Summarizer::make()
                             ->using(fn(Builder $query) => $query->sum('size'))
                             ->formatStateUsing(fn(null|string $state) => FormatFileSize::format($state))
-                    ),
+                    )
+                    ->sortable(query: fn(Builder $query, string $direction) => $query->orderBy('size', $direction)),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->filters([
                 //
@@ -60,17 +68,17 @@ class BackupResource extends Resource
                 Tables\Actions\DeleteBulkAction::make(),
             ])
             ->emptyStateActions([
-                
+
             ]);
     }
-    
+
     public static function getRelations(): array
     {
         return [
             //
         ];
     }
-    
+
     public static function getPages(): array
     {
         return [
@@ -78,5 +86,5 @@ class BackupResource extends Resource
             'create' => Pages\CreateBackup::route('/create'),
             'edit' => Pages\EditBackup::route('/{record}/edit'),
         ];
-    }    
+    }
 }
