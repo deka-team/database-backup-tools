@@ -1,6 +1,7 @@
 <?php
 namespace App\Actions;
 
+use App\Models\Backup;
 use App\Models\Database;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
@@ -32,14 +33,14 @@ class BackupDatabase
         $configPath = "{$prefix}/mysqlpassword.cnf";
         $storage->put($configPath, <<<PLAIN
         [mysqldump]
-        # The following password will be sent to mysqldump 
+        # The following password will be sent to mysqldump
         password="$dbPassword"
         PLAIN);
 
         $configFullPath = $storage->path($configPath);
 
         $command = "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} | {$gzip} > {$fullPath}";
-        
+
         $output = Process::run($command);
 
         if($output->successful()){
@@ -58,6 +59,12 @@ class BackupDatabase
             ]);
 
             $database->touch();
+
+            foreach($database->backups()->oldest()->get() as $index => $backup){
+                if($index >= 3){
+                    $backup->delete();
+                }
+            }
         }
     }
 }
