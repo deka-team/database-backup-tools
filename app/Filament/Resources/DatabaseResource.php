@@ -15,7 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Table;
-use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -24,6 +24,15 @@ class DatabaseResource extends Resource
     protected static ?string $model = Database::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $query->with(['backups']);
+
+        return $query;
+    }
 
     public static function form(Form $form): Form
     {
@@ -55,6 +64,15 @@ class DatabaseResource extends Resource
                         Summarizer::make()
                             ->using(fn (Builder $query) => Backup::whereIn('database_id', $query->pluck('id'))->sum('size'))
                             ->formatStateUsing(fn (null|string $state) => FormatFileSize::format($state))
+                    ),
+                Tables\Columns\TextColumn::make('file_count')
+                    ->label('File')
+                    ->getStateUsing(fn(Model $record) => $record->backups?->count())
+                    ->formatStateUsing(fn (null|string $state) => number_format($state))
+                    ->summarize(
+                        Summarizer::make()
+                            ->using(fn (Builder $query) => Backup::has('database')->count())
+                            ->formatStateUsing(fn (null|string $state) => number_format($state))
                     ),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
