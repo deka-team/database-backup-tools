@@ -15,7 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -25,11 +25,11 @@ class DatabaseResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
 
-    public static function getEloquentQuery(): Builder
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = parent::getEloquentQuery();
 
-        $query->with(['backups']);
+        $query->with(['backups'])->withCount(['backups'])->withSum('backups', 'size');
 
         return $query;
     }
@@ -60,6 +60,7 @@ class DatabaseResource extends Resource
                 Tables\Columns\TextColumn::make('size')
                     ->getStateUsing(fn(Model $record) => $record->backups?->sum('size'))
                     ->formatStateUsing(fn (null|string $state) => FormatFileSize::format($state))
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('backups_sum_size', $direction))
                     ->summarize(
                         Summarizer::make()
                             ->using(fn (Builder $query) => Backup::whereIn('database_id', $query->pluck('id'))->sum('size'))
@@ -69,9 +70,10 @@ class DatabaseResource extends Resource
                     ->label('File')
                     ->getStateUsing(fn(Model $record) => $record->backups?->count())
                     ->formatStateUsing(fn (null|string $state) => number_format($state))
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('backups_count', $direction))
                     ->summarize(
                         Summarizer::make()
-                            ->using(fn (Builder $query) => Backup::has('database')->count())
+                            ->using(fn () => Backup::has('database')->count())
                             ->formatStateUsing(fn (null|string $state) => number_format($state))
                     ),
                 Tables\Columns\TextColumn::make('created_at')
