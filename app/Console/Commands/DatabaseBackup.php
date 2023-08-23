@@ -12,7 +12,7 @@ class DatabaseBackup extends Command
      *
      * @var string
      */
-    protected $signature = 'db:backup {name}';
+    protected $signature = 'db:backup {name} {--view}';
 
     /**
      * The console command description.
@@ -26,7 +26,8 @@ class DatabaseBackup extends Command
      */
     public function handle()
     {
-        $output = BackupDatabase::backup($this->argument('name'));
+        $view = $this->option('view');
+        $output = BackupDatabase::backup(dbName: $this->argument('name'), view: $view);
 
         return $output;
     }

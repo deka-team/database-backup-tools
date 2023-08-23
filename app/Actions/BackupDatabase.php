@@ -4,13 +4,15 @@ namespace App\Actions;
 use App\Models\Backup;
 use App\Models\Database;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 
 class BackupDatabase
 {
-    public static function backup(string $dbName)
+    public static function backup(string $dbName, bool $view = false)
     {
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
         $backupName = "{$dbName}__{$timestamp}.sql.gz";
@@ -38,8 +40,25 @@ class BackupDatabase
         PLAIN);
 
         $configFullPath = $storage->path($configPath);
+        
+        $listTable = value(function($dbName, $view){
 
-        $command = "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} | {$gzip} > {$fullPath}";
+            $type = ["BASE TABLE"];
+
+            if($view){
+                $type[] = "VIEW";
+            }
+
+            $condition = '("' . implode('", "', $type) . '")';
+
+            return implode(' ', Arr::pluck(DB::select(<<<SQL
+                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = "$dbName" AND TABLE_TYPE IN $condition
+            SQL), 'TABLE_NAME'));
+
+        }, $dbName, $view);
+
+        $command = "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} {$listTable} | {$gzip} > {$fullPath}";
 
         $output = Process::run($command);
 
