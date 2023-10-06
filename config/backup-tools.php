@@ -5,5 +5,6 @@
     'backup' => [
         'disk' => env('BACKUP_DISK', 'local'),
         'prefix' => env('BACKUP_PREFIX', 'backup'),
+        'max_files' => env('BACKUP_MAX_FILES', 3),
     ],
 ];

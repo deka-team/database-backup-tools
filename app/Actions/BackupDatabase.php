@@ -80,7 +80,7 @@ class BackupDatabase
             $database->touch();
 
             foreach($database->backups()->latest()->get() as $index => $backup){
-                if($index >= 3){
+                if($index >= intval(config('backup-tools.backup.max_files', 3))){
                     $backup->delete();
                 }
             }
