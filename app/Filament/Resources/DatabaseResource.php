@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Actions\BackupDatabase;
+use App\Actions\BulkBackupDatabase;
 use App\Actions\FormatFileSize;
 use App\Filament\Resources\DatabaseResource\Pages;
 use App\Filament\Resources\DatabaseResource\RelationManagers;
@@ -108,6 +109,7 @@ class DatabaseResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+                BulkBackupDatabase::make(),
             ])
             ->emptyStateActions([
                 Tables\Actions\CreateAction::make(),
