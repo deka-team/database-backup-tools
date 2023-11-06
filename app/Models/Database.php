@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,12 +17,19 @@ class Database extends Model
         'host',
         'username',
         'password',
+        'is_active',
         'meta',
     ];
 
     protected $casts = [
+        'is_active' => 'bool',
         'meta' => 'json'
     ];
+
+    public function scopeActive(Builder $query)
+    {
+        $query->where('is_active', true);
+    }
 
     public function backups(): HasMany
     {

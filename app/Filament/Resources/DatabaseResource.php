@@ -48,6 +48,8 @@ class DatabaseResource extends Resource
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->maxLength(255),
+                Forms\Components\Toggle::make('is_active')
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -77,6 +79,7 @@ class DatabaseResource extends Resource
                             ->using(fn () => Backup::has('database')->count())
                             ->formatStateUsing(fn (null|string $state) => number_format($state))
                     ),
+                Tables\Columns\ToggleColumn::make('is_active'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

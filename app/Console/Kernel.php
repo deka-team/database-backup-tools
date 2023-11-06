@@ -15,7 +15,7 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
 
-        $databases = Database::where('is_active', 1)->get();
+        $databases = Database::active()->get();
         foreach($databases as $database){
             $schedule->command("db:backup {$database->name}")->dailyAt('17:00');
         }
