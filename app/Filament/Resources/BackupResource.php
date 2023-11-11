@@ -54,7 +54,11 @@ class BackupResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('database')
+                    ->relationship('database', 'name')
+                    ->multiple()
+                    ->preload(),
+
             ])
             ->actions([
                 Tables\Actions\Action::make('download')
