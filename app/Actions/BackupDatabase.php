@@ -64,12 +64,19 @@ class BackupDatabase
 
         }, $dbName, $view);
 
-        $output = Process::pipe([
+        $pulseExists = count(DB::select(<<<SQL
+                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = "$dbName" AND TABLE_NAME LIKE "pulse_%"
+            SQL)) > 0;
+
+        $output = Process::pipe(array_filter([
             "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}",
-            "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}",
+            $pulseExists
+                ? "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
+                : null ,
             "cat {$fullPathSql} | {$gzip} > $fullPathGz",
             "rm {$fullPathSql}",
-        ]);
+        ]));
 
         if($output->successful()){
 
