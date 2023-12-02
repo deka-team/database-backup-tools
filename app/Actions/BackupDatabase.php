@@ -40,7 +40,7 @@ class BackupDatabase
         PLAIN);
 
         $configFullPath = $storage->path($configPath);
-        
+
         $listTable = value(function($dbName, $view){
 
             $type = ["BASE TABLE"];
@@ -54,6 +54,7 @@ class BackupDatabase
             return implode(' ', Arr::pluck(DB::select(<<<SQL
                 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
                 WHERE TABLE_SCHEMA = "$dbName" AND TABLE_TYPE IN $condition
+                    AND TABLE_NAME NOT LIKE "pulse_%"
             SQL), 'TABLE_NAME'));
 
         }, $dbName, $view);
