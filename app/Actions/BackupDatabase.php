@@ -4,8 +4,10 @@ namespace App\Actions;
 use App\Models\Backup;
 use App\Models\Database;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Process\Pipe;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +17,7 @@ class BackupDatabase
     public static function backup(string $dbName, bool $view = false)
     {
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
-        $backupName = "{$dbName}__{$timestamp}.sql.gz";
+        $backupName = "{$dbName}__{$timestamp}";
 
         $backupDisk = config('backup-tools.backup.disk', 'local');
         $prefix = config('backup-tools.backup.prefix', 'backup');
@@ -24,9 +26,12 @@ class BackupDatabase
         $dbUsername = config('database.connections.mysql.username');
         $dbPassword = config('database.connections.mysql.password');
 
-        $backupPath = "{$prefix}/{$backupName}";
+        $sqlPath = "{$prefix}/{$backupName}.sql";
+        $backupPath = "{$sqlPath}.gz";
+        /** @var Storage $storage */
         $storage = Storage::disk($backupDisk);
-        $fullPath = $storage->path($backupPath);
+        $fullPathSql = $storage->path($sqlPath);
+        $fullPathGz = $storage->path($backupPath);
 
         if(!$storage->exists($prefix)){
             mkdir($storage->path($prefix));
@@ -59,9 +64,12 @@ class BackupDatabase
 
         }, $dbName, $view);
 
-        $command = "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} {$listTable} | {$gzip} > {$fullPath}";
-
-        $output = Process::run($command);
+        $output = Process::pipe([
+            "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}",
+            "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}",
+            "cat {$fullPathSql} | {$gzip} > $fullPathGz",
+            "rm {$fullPathSql}",
+        ]);
 
         if($output->successful()){
 
@@ -72,7 +80,7 @@ class BackupDatabase
             ]);
 
             $database->backups()->create([
-                'name' => $backupName,
+                'name' => basename($fullPathGz),
                 'path' => $backupPath,
                 'disk' => $backupDisk,
                 'size' => $backupSize,
