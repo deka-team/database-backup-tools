@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,13 @@ class Database extends Model
     public function scopeActive(Builder $query)
     {
         $query->where('is_active', true);
+    }
+
+    public function latestBackupUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => optional($this->backups->sortByDesc('created_at')->first())->url,
+        );
     }
 
     public function backups(): HasMany

@@ -104,6 +104,10 @@ class DatabaseResource extends Resource
                         })
                         ->icon('heroicon-o-bolt')
                         ->requiresConfirmation(),
+                    Tables\Actions\Action::make('download-latest')
+                        ->label('Download Latest')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->url(fn (Model $record) => $record?->latestBackupUrl, shouldOpenInNewTab: true),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make(),
                 ]),
