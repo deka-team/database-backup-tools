@@ -23,6 +23,7 @@ class BackupDatabase
         $prefix = config('backup-tools.backup.prefix', 'backup');
         $mysqldump = config('backup-tools.mysqldump', '/usr/bin/mysqldump');
         $gzip = config('backup-tools.gzip', '/usr/bin/gzip');
+        $dbHost = env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
         $dbUsername = config('database.connections.mysql.username');
         $dbPassword = config('database.connections.mysql.password');
 
@@ -70,9 +71,9 @@ class BackupDatabase
             SQL)) > 0;
 
         $output = Process::pipe(array_filter([
-            "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}",
+            "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}",
             $pulseExists
-                ? "{$mysqldump} --defaults-extra-file={$configFullPath} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
+                ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
                 : null ,
             "cat {$fullPathSql} | {$gzip} > $fullPathGz",
             "rm {$fullPathSql}",
