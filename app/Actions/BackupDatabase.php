@@ -71,9 +71,9 @@ class BackupDatabase
                 WHERE TABLE_SCHEMA = "$dbName" AND TABLE_NAME LIKE "pulse_%"
             SQL)) > 0;
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} --generated-columns=OFF --column-statistics=0 {$dbName} {$listTable} > {$fullPathSql}";
+        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
         $cmd2 = $pulseExists
-                    ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} --generated-columns=OFF --column-statistics=0 {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
+                    ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
                     : null;
         $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
         $cmd4 = "rm {$fullPathSql}";
