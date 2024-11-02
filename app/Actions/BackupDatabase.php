@@ -53,8 +53,8 @@ class BackupDatabase
             mkdir($localStorage->path($prefix));
         }
 
-        $configPath = Str::of($dbHost)
-            ->replace(".", "-")
+        $configPath = Str::of("{$dbHost}:{$dbPort}")
+            ->replace([".", ":"], "-")
             ->slug()
             ->prepend($prefix, "/")
             ->append(".cnf")
