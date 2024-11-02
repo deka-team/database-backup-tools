@@ -53,7 +53,12 @@ class BackupDatabase
             mkdir($localStorage->path($prefix));
         }
 
-        $configPath = "{$prefix}/mysqlpassword.cnf";
+        $configPath = Str::of($dbHost)
+            ->replace(".", "-")
+            ->slug()
+            ->prepend($prefix, "/")
+            ->append(".cnf")
+            ->toString();
         $localStorage->put($configPath, <<<PLAIN
         [mysqldump]
         # The following password will be sent to mysqldump
