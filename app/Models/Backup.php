@@ -36,7 +36,12 @@ class Backup extends Model
 
     public function url(): Attribute
     {
-        $url = route('download', ['backup' => $this->id, 'name' => $this->name]);
+        if($this->disk === 'minio'){
+            /** @disregard P1013 */
+            $url = Storage::disk($this->disk)->temporaryUrl($this->path, now()->addMinutes(10));
+        }else{
+            $url = route('download', ['backup' => $this->id, 'name' => $this->name]);
+        }
 
         return Attribute::make(
             get: fn() => $url,
