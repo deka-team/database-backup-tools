@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Actions;
+namespace App\Filament\Actions;
 
+use App\Actions\BackupDatabase;
 use Filament\Actions\Concerns\CanCustomizeProcess;
 use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Contracts\HasTable;
@@ -9,7 +10,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
-class BulkBackupDatabase extends BulkAction
+class BulkBackupDatabaseAction extends BulkAction
 {
     use CanCustomizeProcess;
 
