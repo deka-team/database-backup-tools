@@ -1,5 +1,7 @@
 <?php
 
+use App\Jobs\BackupDatabaseJob;
+use App\Models\Database;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -16,9 +18,12 @@ use Illuminate\Support\Facades\Schedule;
 */
 
 
-// Schedule::call(function(){
-
-// })
-// ->name('backup-database-daily')
-// ->description('Backup database daily')
-// ->dailyAt('17:00');
+Schedule::call(function(){
+    $databases = Database::active()->get();
+    foreach ($databases as $database) {
+        BackupDatabaseJob::dispatch($database);
+    }
+})
+->name('backup-database-daily')
+->description('Backup database daily')
+->dailyAt('17:00');
