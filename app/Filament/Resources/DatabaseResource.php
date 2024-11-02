@@ -53,10 +53,14 @@ class DatabaseResource extends Resource
                     ->extraInputAttributes([
                         "autocomplete" => "new-password"
                     ])
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->revealable(),
                 Forms\Components\Toggle::make('is_active')
+                    ->label('Auto Backup')
                     ->columnSpanFull(),
-            ]);
+            ])
+            ->columns(1)
+            ->inlineLabel();
     }
 
     public static function table(Table $table): Table
@@ -85,7 +89,8 @@ class DatabaseResource extends Resource
                             ->using(fn () => Backup::has('database')->count())
                             ->formatStateUsing(fn (null|string $state) => number_format($state))
                     ),
-                Tables\Columns\ToggleColumn::make('is_active'),
+                Tables\Columns\ToggleColumn::make('is_active')
+                    ->label('Auto Backup'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
