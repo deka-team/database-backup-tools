@@ -44,9 +44,15 @@ class DatabaseResource extends Resource
                 Forms\Components\TextInput::make('host')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('username')
+                    ->extraInputAttributes([
+                        "autocomplete" => "do-not-autofill"
+                    ])
                     ->maxLength(255),
                 Forms\Components\TextInput::make('password')
                     ->password()
+                    ->extraInputAttributes([
+                        "autocomplete" => "do-not-autofill"
+                    ])
                     ->maxLength(255),
                 Forms\Components\Toggle::make('is_active')
                     ->columnSpanFull(),
