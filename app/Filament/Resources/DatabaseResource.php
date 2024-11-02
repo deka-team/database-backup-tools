@@ -45,13 +45,13 @@ class DatabaseResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('username')
                     ->extraInputAttributes([
-                        "autocomplete" => "do-not-autofill"
+                        "autocomplete" => "new-username"
                     ])
                     ->maxLength(255),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->extraInputAttributes([
-                        "autocomplete" => "do-not-autofill"
+                        "autocomplete" => "new-password"
                     ])
                     ->maxLength(255),
                 Forms\Components\Toggle::make('is_active')
