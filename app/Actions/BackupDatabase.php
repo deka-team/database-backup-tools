@@ -26,6 +26,8 @@ class BackupDatabase
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
         $backupName = "{$dbName}__{$timestamp}";
 
+        $appUrl = parse_url(config('app.url'));
+        $appHost = $appUrl['host'] ?? $appUrl['path'] ?? null;
         $backupDisk = config('backup-tools.backup.disk', 'local');
         $prefix = config('backup-tools.backup.prefix', 'backup');
         $mysqldump = config('backup-tools.mysqldump', '/usr/bin/mysqldump');
@@ -41,23 +43,24 @@ class BackupDatabase
 
         $sqlPath = "{$prefix}/{$backupName}.sql";
         $backupPath = "{$sqlPath}.gz";
-        /** @var Storage $storage */
-        $storage = Storage::disk($backupDisk);
-        $fullPathSql = $storage->path($sqlPath);
-        $fullPathGz = $storage->path($backupPath);
+        /** @var Storage $localStorage */
 
-        if(!$storage->exists($prefix)){
-            mkdir($storage->path($prefix));
+        $localStorage = Storage::disk('local');
+        $fullPathSql = $localStorage->path($sqlPath);
+        $fullPathGz = $localStorage->path($backupPath);
+
+        if(!$localStorage->exists($prefix)){
+            mkdir($localStorage->path($prefix));
         }
 
         $configPath = "{$prefix}/mysqlpassword.cnf";
-        $storage->put($configPath, <<<PLAIN
+        $localStorage->put($configPath, <<<PLAIN
         [mysqldump]
         # The following password will be sent to mysqldump
         password="$dbPassword"
         PLAIN);
 
-        $configFullPath = $storage->path($configPath);
+        $configFullPath = $localStorage->path($configPath);
 
         $listTable = value(function($dbName, $view){
 
@@ -103,7 +106,20 @@ class BackupDatabase
 
         if($output->successful()){
 
-            $backupSize = $storage->size($backupPath);
+            $backupSize = $localStorage->size($backupPath);
+
+            if($backupDisk === 'minio'){
+                // transfer to minio
+                $minio = Storage::disk('minio');
+                $minioPath = implode('/', array_filter([$appHost, basename($backupPath)]));
+                $minio->put($minioPath, $localStorage->get($backupPath));
+
+                $backupPath = $minioPath;
+                $backupDisk = 'minio';
+
+                // delete from local
+                $localStorage->delete($backupPath);
+            }
 
             $database = Database::firstOrCreate([
                 'name' => $dbName
