@@ -27,7 +27,7 @@ class DatabaseBackup extends Command
     public function handle()
     {
         $view = $this->option('view');
-        $output = BackupDatabase::backup(dbName: $this->argument('name'), view: $view);
+        $output = BackupDatabase::backup(database: $this->argument('name'), view: $view);
 
         return $output;
     }

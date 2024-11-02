@@ -15,8 +15,14 @@ use Illuminate\Support\Facades\Storage;
 
 class BackupDatabase
 {
-    public static function backup(string $dbName, bool $view = false)
+    public static function backup(Database | string $database, bool $view = false)
     {
+        if(is_string($database)){
+            $dbName = $database;
+        }else{
+            $dbName = $database->name;
+        }
+
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
         $backupName = "{$dbName}__{$timestamp}";
 
@@ -24,9 +30,14 @@ class BackupDatabase
         $prefix = config('backup-tools.backup.prefix', 'backup');
         $mysqldump = config('backup-tools.mysqldump', '/usr/bin/mysqldump');
         $gzip = config('backup-tools.gzip', '/usr/bin/gzip');
-        $dbHost = env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
-        $dbUsername = config('database.connections.mysql.username');
-        $dbPassword = config('database.connections.mysql.password');
+        $dbHost = $database?->host ?? env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
+        $dbUsername = $database?->username ?? config('database.connections.mysql.username');
+        $dbPassword = $database?->password ?? config('database.connections.mysql.password');
+
+        $dbHostAndPort = parse_url($dbHost);
+
+        $dbPort = $dbHostAndPort['port'] ?? 3306;
+        $dbHost = $dbHostAndPort['host'] ?? $dbHostAndPort['path'] ?? $dbHost;
 
         $sqlPath = "{$prefix}/{$backupName}.sql";
         $backupPath = "{$sqlPath}.gz";
@@ -71,9 +82,9 @@ class BackupDatabase
                 WHERE TABLE_SCHEMA = "$dbName" AND TABLE_NAME LIKE "pulse_%"
             SQL)) > 0;
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
+        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
         $cmd2 = $pulseExists
-                    ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
+                    ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
                     : null;
         $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
         $cmd4 = "rm {$fullPathSql}";

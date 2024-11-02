@@ -102,7 +102,7 @@ class DatabaseResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('backup')
                         ->action(function(Model $record){
-                            BackupDatabase::backup($record->name);
+                            BackupDatabase::backup($record);
                             Notification::make()
                                 ->title('Backup Successfully')
                                 ->success()

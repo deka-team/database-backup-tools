@@ -40,7 +40,7 @@ class BulkBackupDatabaseAction extends BulkAction
         $this->modalIcon('heroicon-o-bolt');
 
         $this->action(function (): void {
-            $this->process(static fn (Collection $records) => $records->each(fn (Model $record) => BackupDatabase::backup($record->name)));
+            $this->process(static fn (Collection $records) => $records->each(fn (Model $record) => BackupDatabase::backup($record)));
 
             $this->success();
         });
