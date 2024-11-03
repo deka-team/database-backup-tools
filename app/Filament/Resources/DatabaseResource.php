@@ -19,6 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\HtmlString;
 
 class DatabaseResource extends Resource
 {
@@ -105,6 +106,17 @@ class DatabaseResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('test-connection')
+                        ->action(function(Model $record){
+                            $success = $record->testConnection();
+
+                            Notification::make()
+                                ->title(new HtmlString("Test Connection <strong>{$record->name}</strong>"))
+                                ->body($success ? 'Connection successful' : 'Connection failed')
+                                ->status($success ? 'success' : 'danger')
+                                ->send();
+                        })
+                        ->icon('heroicon-o-check-circle'),
                     Tables\Actions\Action::make('backup')
                         ->action(function(Model $record){
                             BackupDatabase::backup($record);
@@ -119,7 +131,16 @@ class DatabaseResource extends Resource
                         ->label('Download Latest')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->url(fn (Model $record) => $record?->latestBackupUrl, shouldOpenInNewTab: true),
-                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\EditAction::make()
+                        ->after(function(Model $record){
+                            $success = $record->testConnection();
+
+                            Notification::make()
+                                ->title(new HtmlString("Test Connection <strong>{$record->name}</strong>"))
+                                ->body($success ? 'Connection successful' : 'Connection failed')
+                                ->status($success ? 'success' : 'danger')
+                                ->send();
+                        }),
                     Tables\Actions\DeleteAction::make(),
                 ]),
             ])
