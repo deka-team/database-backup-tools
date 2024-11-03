@@ -10,7 +10,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
-class BulkBackupDatabaseAction extends BulkAction
+class BackupDatabaseBulkAction extends BulkAction
 {
     use CanCustomizeProcess;
 
