@@ -97,6 +97,8 @@ class BackupDatabase
         $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
         $cmd4 = "rm {$fullPathSql}";
 
+        Log::info("List Table : {$listTable}");
+
         Log::info("CMD 1 : {$cmd1}");
         Log::info("CMD 2 : {$cmd2}");
         Log::info("CMD 3 : {$cmd3}");
