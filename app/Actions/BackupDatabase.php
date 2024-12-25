@@ -31,6 +31,7 @@ class BackupDatabase
         $backupDisk = config('backup-tools.backup.disk', 'local');
         $prefix = config('backup-tools.backup.prefix', 'backup');
         $mysqldump = config('backup-tools.mysqldump', '/usr/bin/mysqldump');
+        $mysql = config('backup-tools.mysql', '/usr/bin/mysql');
         $gzip = config('backup-tools.gzip', '/usr/bin/gzip');
         $dbHost = $database?->host ?? env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
         $dbUsername = $database?->username ?? config('database.connections.mysql.username');
@@ -67,28 +68,29 @@ class BackupDatabase
 
         $configFullPath = $localStorage->path($configPath);
 
-        $listTable = value(function($dbName, $view){
+        $inlinePassword = $dbPassword ? "-p{$dbPassword}" : '';
+        // change list table using mysql cli command instead
+        $listTable = value(function() use ($mysql, $dbHost, $dbPort, $dbUsername, $inlinePassword, $dbName){
+            $output = Process::run("{$mysql} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$inlinePassword} -e 'SHOW FULL TABLES FROM {$dbName} WHERE Table_Type = \"BASE TABLE\"'");
 
-            $type = ["BASE TABLE"];
+            return array_map(function($item){
+                $items = explode("\t", $item);
+                return trim($items[0] ?? '');
+            }, explode("\n", $output->output()));
+        });
 
-            if($view){
-                $type[] = "VIEW";
-            }
+        $pulseExists = count(Arr::where($listTable, function($item){
+            return Str::startsWith($item, 'pulse_');
+        })) > 0;
 
-            $condition = '("' . implode('", "', $type) . '")';
+        $listTable = value(function($result){
+            $result = array_filter($result, function ($item) {
+                // remove Tables_in_dbName
+                return !Str::startsWith($item, 'Tables_in_') && !empty($item) && !Str::startsWith($item, 'pulse_');
+            });
 
-            return implode(' ', Arr::pluck(DB::select(<<<SQL
-                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = "$dbName" AND TABLE_TYPE IN $condition
-                    AND TABLE_NAME NOT LIKE "pulse_%"
-            SQL), 'TABLE_NAME'));
-
-        }, $dbName, $view);
-
-        $pulseExists = count(DB::select(<<<SQL
-                SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = "$dbName" AND TABLE_NAME LIKE "pulse_%"
-            SQL)) > 0;
+            return implode(' ', $result);
+        }, $listTable);
 
         $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
         $cmd2 = $pulseExists
