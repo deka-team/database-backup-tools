@@ -90,7 +90,14 @@ class BackupDatabase
                 WHERE TABLE_SCHEMA = "$dbName" AND TABLE_NAME LIKE "pulse_%"
             SQL)) > 0;
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
+        // make ignore list for pulse tables for append to cmd1
+        if ($pulseExists) {
+            $ignoreList = " --ignore-table={$dbName}.pulse_aggregates --ignore-table={$dbName}.pulse_entries --ignore-table={$dbName}.pulse_values";
+        }else{
+            $ignoreList = "";
+        }
+
+        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} {$ignoreList} > {$fullPathSql}";
         $cmd2 = $pulseExists
                     ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
                     : null;
