@@ -92,7 +92,7 @@ class BackupDatabase
             return implode(' ', $result);
         }, $listTable);
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
+        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} --complete-insert=FALSE -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
         $cmd2 = $pulseExists
                     ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
                     : null;
