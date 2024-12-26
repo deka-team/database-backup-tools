@@ -29,8 +29,11 @@ class BackupDumper
                 $bindings = (array) $item;
 
                 // cleanup bindings value, to handle "Strings with invalid UTF-8 byte sequences cannot be escaped."
+                // handle binary data
                 foreach($bindings as $key => $value){
-                    $bindings[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+                    if(is_string($value)){
+                        $bindings[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+                    }
                 }
 
                 try{
