@@ -98,10 +98,11 @@ class BackupDatabase
             $columns = self::getTableColumns($connection, $table);
             $insertedColumns = [];
             foreach($columns as $column){
-                if(!self::isGeneratedColumn($column)){
+
+                if(self::isBinaryColumn($column)){
+                    $insertedColumns[] = DB::raw("BINARY {$column->Field} AS {$column->Field}");
+                }else if(!self::isGeneratedColumn($column)){
                     $insertedColumns[] = $column->Field;
-                }else{
-                    dd($column);
                 }
             }
 
@@ -192,6 +193,11 @@ class BackupDatabase
     public static function getTableColumns(Connection $connection, string $table)
     {
         return $connection->select("SHOW COLUMNS FROM {$table}");
+    }
+
+    public static function isBinaryColumn($columnInfo)
+    {
+        return Str::contains(strtolower($columnInfo->Type), 'binary');
     }
 
     public static function isGeneratedColumn($columnInfo)
