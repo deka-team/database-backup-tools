@@ -33,15 +33,19 @@ class BackupDumper
                     $bindings[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
                 }
 
-                $compileSql = $grammar->compileInsert($instance->query, $bindings);
-    
-                $instance->results[] = $grammar->substituteBindingsIntoRawSql(
-                    $compileSql,
-                    $connection->prepareBindings($bindings)
-                ).";\n";
+                try{
+                    $compileSql = $grammar->compileInsert($instance->query, $bindings);
+        
+                    $instance->results[] = $grammar->substituteBindingsIntoRawSql(
+                        $compileSql,
+                        $connection->prepareBindings($bindings)
+                    ).";\n";
+                }catch(\Exception $e){
+                    dd($query, $bindings, $e->getMessage());
+                }
             }
         }catch(\Exception $e){
-            throw $e;
+            dd($query, $columns, $e->getMessage());
         }
 
 
