@@ -24,15 +24,26 @@ class BackupDumper
         $grammar = $instance->query->getGrammar();
         $connection = $instance->query->getConnection();
 
-        foreach ($instance->records as $item) {
-            $bindings = (array) $item;
-            $compileSql = $grammar->compileInsert($instance->query, $bindings);
+        try{
+            foreach ($instance->records as $item) {
+                $bindings = (array) $item;
 
-            $instance->results[] = $grammar->substituteBindingsIntoRawSql(
-                $compileSql,
-                $connection->prepareBindings($bindings)
-            ).";\n";
+                // cleanup bindings value, to handle "Strings with invalid UTF-8 byte sequences cannot be escaped."
+                foreach($bindings as $key => $value){
+                    $bindings[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+                }
+
+                $compileSql = $grammar->compileInsert($instance->query, $bindings);
+    
+                $instance->results[] = $grammar->substituteBindingsIntoRawSql(
+                    $compileSql,
+                    $connection->prepareBindings($bindings)
+                ).";\n";
+            }
+        }catch(\Exception $e){
+            throw $e;
         }
+
 
         return $instance;
     }

@@ -105,7 +105,12 @@ class BackupDatabase
                 }
             }
 
-            $output = BackupDumper::make($connection->table($table), $insertedColumns)->compile();
+            try{
+                $output = BackupDumper::make($connection->table($table), $insertedColumns)->compile();
+            }catch(\Exception $e){
+                throw $e;
+            }
+
 
             if(empty($output)){
                 continue;
@@ -150,6 +155,7 @@ class BackupDatabase
                 $localStorage->delete($backupPath);
             }
 
+            /** @disregard */
             $database = Database::firstOrCreate([
                 'name' => $dbName
             ]);
