@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Connection;
 
 class BackupDatabase
 {
@@ -28,6 +29,7 @@ class BackupDatabase
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
         $backupName = "{$dbName}__{$timestamp}";
 
+        $driver = 'mysql';
         $appUrl = parse_url(config('app.url'));
         $appHost = $appUrl['host'] ?? $appUrl['path'] ?? null;
         $backupDisk = config('backup-tools.backup.disk', 'local');
@@ -70,49 +72,61 @@ class BackupDatabase
 
         $configFullPath = $localStorage->path($configPath);
 
-        $inlinePassword = $dbPassword ? "-p{$dbPassword}" : '';
-        // change list table using mysql cli command instead
-        $listTable = value(function() use ($mysql, $dbHost, $dbPort, $dbUsername, $inlinePassword, $dbName){
-            $output = Process::run("{$mysql} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$inlinePassword} -e 'SHOW FULL TABLES FROM {$dbName} WHERE Table_Type = \"BASE TABLE\"'");
+        $connection = DB::build([
+            'driver' => $driver,
+            'host' => $dbHost,
+            'port' => $dbPort,
+            'database' => $dbName,
+            'username' => $dbUsername,
+            'password' => $dbPassword,
+        ]);
 
-            return array_map(function($item){
-                $items = explode("\t", $item);
-                return trim($items[0] ?? '');
-            }, explode("\n", $output->output()));
-        });
+        $listTable = self::getListTable($connection);
 
-        $pulseExists = count(Arr::where($listTable, function($item){
-            return Str::startsWith($item, 'pulse_');
-        })) > 0;
+        $cmdData = [
+            // disable foreign key checks
+            "echo \"SET foreign_key_checks = 0;\" >> {$fullPathSql}",
+        ];
 
-        $listTable = value(function($result){
-            $result = array_filter($result, function ($item) {
-                // remove Tables_in_dbName
-                return !Str::startsWith($item, 'Tables_in_') && !empty($item) && !Str::startsWith($item, 'pulse_');
-            });
+        foreach($listTable as $table){
 
-            return implode(' ', $result);
-        }, $listTable);
+            // skip pulse_* tables
+            if(Str::startsWith($table, 'pulse_')){
+                continue;
+            }
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} --complete-insert=FALSE -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} {$listTable} > {$fullPathSql}";
-        $cmd2 = $pulseExists
-                    ? "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} pulse_aggregates pulse_entries pulse_values --no-data >> {$fullPathSql}"
-                    : null;
-        $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
-        $cmd4 = "rm {$fullPathSql}";
+            $columns = self::getTableColumns($connection, $table);
+            $insertedColumns = [];
+            foreach($columns as $column){
+                if(!self::isGeneratedColumn($column)){
+                    $insertedColumns[] = $column->Field;
+                }else{
+                    dd($column);
+                }
+            }
 
-        Log::info("List Table : {$listTable}");
+            $output = BackupDumper::make($connection->table($table), $insertedColumns)->compile();
 
-        Log::info("CMD 1 : {$cmd1}");
-        Log::info("CMD 2 : {$cmd2}");
-        Log::info("CMD 3 : {$cmd3}");
-        Log::info("CMD 4 : {$cmd4}");
+            if(empty($output)){
+                continue;
+            }
+
+            $output = "-- START INSERT INTO {$table}\n\n{$output}\n-- END INSERT INTO {$table}\n\n";
+
+            $cmdData[] = str_replace("`", "\`", "echo \"{$output}\" >> {$fullPathSql}");
+        }
+
+        $cmdData[] = "echo \"SET foreign_key_checks = 1;\" >> {$fullPathSql}";
+
+        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} --no-data > {$fullPathSql}";
+        $cmd2 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
+        $cmd3 = "rm {$fullPathSql}";
 
         $output = Process::pipe(array_filter([
             $cmd1,
+            ...$cmdData,
             $cmd2,
             $cmd3,
-            $cmd4,
         ]));
 
         if($error = $output->errorOutput()){
@@ -155,5 +169,29 @@ class BackupDatabase
                 }
             }
         }
+    }
+
+    public static function getListTable(Connection $connection)
+    {
+        $result = $connection->select('SHOW FULL TABLES WHERE Table_Type = "BASE TABLE"');
+        $firstColumn = head(array_keys((array) ($result[0] ?? [])));
+
+        if($firstColumn){
+            return Arr::pluck($result, $firstColumn);
+        }else{
+            return [];
+        }
+    }
+
+    public static function getTableColumns(Connection $connection, string $table)
+    {
+        return $connection->select("SHOW COLUMNS FROM {$table}");
+    }
+
+    public static function isGeneratedColumn($columnInfo)
+    {
+        return (Str::contains(strtolower($columnInfo->Extra), 'generated')
+        || Str::contains(strtolower($columnInfo->Extra), 'virtual')
+        || Str::contains(strtolower($columnInfo->Extra), 'stored')) && $columnInfo->Type !== 'timestamp';
     }
 }
