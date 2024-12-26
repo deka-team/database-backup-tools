@@ -119,11 +119,19 @@ class DatabaseResource extends Resource
                         ->icon('heroicon-o-check-circle'),
                     Tables\Actions\Action::make('backup')
                         ->action(function(Model $record){
-                            BackupDatabase::backup($record);
-                            Notification::make()
-                                ->title('Backup Successfully')
-                                ->success()
-                                ->send();
+                            try{
+                                BackupDatabase::backup($record);
+                                Notification::make()
+                                    ->title('Backup Successfully')
+                                    ->success()
+                                    ->send();
+                            }catch(\Exception $e){
+                                Notification::make()
+                                    ->title('Backup Failed')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         })
                         ->icon('heroicon-o-bolt')
                         ->requiresConfirmation(),

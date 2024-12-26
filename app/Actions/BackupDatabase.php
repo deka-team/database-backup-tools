@@ -3,10 +3,12 @@ namespace App\Actions;
 
 use App\Models\Backup;
 use App\Models\Database;
+use Filament\Notifications\Notification;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Process\Pipe;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -112,6 +114,10 @@ class BackupDatabase
             $cmd3,
             $cmd4,
         ]));
+
+        if($error = $output->errorOutput()){
+            throw new \Exception($error);
+        }
 
         if($output->successful()){
 
