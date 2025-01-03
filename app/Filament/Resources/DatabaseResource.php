@@ -11,6 +11,8 @@ use App\Models\Backup;
 use App\Models\Database;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -41,9 +43,14 @@ class DatabaseResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->maxLength(100),
+                    ->maxLength(100)
+                    ->helperText('Untuk Prefix Nama File Backup'),
+                Forms\Components\TextInput::make('database')
+                    ->maxLength(100)
+                    ->helperText('Nama Database'),
                 Forms\Components\TextInput::make('host')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->helperText('Jika menggunakan port, gunakan format host:port'),
                 Forms\Components\TextInput::make('username')
                     ->extraInputAttributes([
                         "autocomplete" => "new-username"
@@ -59,6 +66,62 @@ class DatabaseResource extends Resource
                 Forms\Components\Toggle::make('is_active')
                     ->label('Auto Backup')
                     ->columnSpanFull(),
+                Forms\Components\Toggle::make('is_selective')
+                    ->label('Selective Backup')
+                    ->live()
+                    ->afterStateUpdated(function(Set $set, ?bool $state){
+                        if(!$state){
+                            $set('tables', []);
+                            $set('views', []);
+                        }
+
+                    })
+                    ->columnSpanFull(),
+
+                Forms\Components\Select::make('tables')
+                    ->multiple()
+                    ->options(function(Get $get){
+                        $host = $get('host');
+                        $database = $get('database');
+                        $username = $get('username');
+                        $password = $get('password');
+
+                        if(!$host || !$database || !$username){
+                            return [];
+                        }
+
+                        try{
+                            $options = BackupDatabase::getListTableOptions(host: $host, database: $database, username: $username, password: $password);
+                            return $options;
+                        }catch(\Exception $e){
+                            return [];
+                        }
+                    })
+                    ->columnSpanFull()
+                    ->visible(fn(Get $get) => $get('is_selective'))
+                    ->required(),
+                Forms\Components\Select::make('views')
+                    ->multiple()
+                    ->options(function(Get $get){
+                        $host = $get('host');
+                        $database = $get('database');
+                        $username = $get('username');
+                        $password = $get('password');
+
+                        if(!$host || !$database || !$username){
+                            return [];
+                        }
+
+                        try{
+                            $options = BackupDatabase::getListViewOptions(host: $host, database: $database, username: $username, password: $password);
+                            return $options;
+                        }catch(\Exception $e){
+                            return [];
+                        }
+                    })
+                    ->columnSpanFull()
+                    ->visible(fn(Get $get) => $get('is_selective'))
+                    ->required(),
             ])
             ->columns(1)
             ->inlineLabel();

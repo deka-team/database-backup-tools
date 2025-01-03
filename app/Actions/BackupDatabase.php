@@ -23,13 +23,14 @@ class BackupDatabase
         if(is_string($database)){
             $dbName = $database;
         }else{
-            $dbName = $database->name;
+            $dbName = $database->database;
         }
 
-        $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
-        $backupName = "{$dbName}__{$timestamp}";
+        $backupNamePrefix = $database?->name ?: $dbName;
 
-        $driver = 'mysql';
+        $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
+        $backupName = "{$backupNamePrefix}__{$timestamp}";
+
         $appUrl = parse_url(config('app.url'));
         $appHost = $appUrl['host'] ?? $appUrl['path'] ?? null;
         $backupDisk = config('backup-tools.backup.disk', 'local');
@@ -41,10 +42,8 @@ class BackupDatabase
         $dbUsername = $database?->username ?? config('database.connections.mysql.username');
         $dbPassword = $database?->password ?? config('database.connections.mysql.password');
 
-        $dbHostAndPort = parse_url($dbHost);
-
-        $dbPort = $dbHostAndPort['port'] ?? 3306;
-        $dbHost = $dbHostAndPort['host'] ?? $dbHostAndPort['path'] ?? $dbHost;
+        $dbPort = self::parsePort($dbHost);
+        $dbHost = self::parseHost($dbHost);
 
         $sqlPath = "{$prefix}/{$backupName}.sql";
         $backupPath = "{$sqlPath}.gz";
@@ -72,19 +71,23 @@ class BackupDatabase
 
         $configFullPath = $localStorage->path($configPath);
 
-        $connection = DB::build([
-            'driver' => $driver,
-            'host' => $dbHost,
-            'port' => $dbPort,
-            'database' => $dbName,
-            'username' => $dbUsername,
-            'password' => $dbPassword,
-        ]);
+        if($database->is_selective){
+            $listTable = $database->tables ?? [];
+            $listView = $database->views ?? [];
+        }else{
+            $connection = self::connection(
+                host: $dbHost,
+                port: $dbPort,
+                database: $dbName,
+                username: $dbUsername,
+                password: $dbPassword
+            );
+    
+            $listTable = self::getListTable($connection);    
+            $listView = self::getListView($connection);
+        }
 
-        $listTable = self::getListTable($connection);
         $listTableString = implode(' ', $listTable);
-
-        $listView = self::getListView($connection);
         $listViewString = implode(' ', $listView);
 
         $baseMysqldump = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName}";
@@ -126,10 +129,13 @@ class BackupDatabase
                 $localStorage->delete($backupPath);
             }
 
-            /** @disregard */
-            $database = Database::firstOrCreate([
-                'name' => $dbName
-            ]);
+            if(is_string($database)){
+                /** @disregard */
+                $database = Database::firstOrCreate([
+                    'name' => $backupNamePrefix,
+                    'database' => $dbName,
+                ]);
+            }
 
             $database->backups()->create([
                 'name' => basename($fullPathGz),
@@ -146,6 +152,33 @@ class BackupDatabase
                 }
             }
         }
+    }
+
+    public static function parseHost(string $host)
+    {
+        $dbHostAndPort = parse_url($host);
+        return ($dbHostAndPort['host'] ?? $dbHostAndPort['path']) ?: "127.0.0.1";
+    }
+
+    public static function parsePort(string $host)
+    {
+        $dbHostAndPort = parse_url($host);
+        return (int) ($dbHostAndPort['port'] ?? 3306);
+    }
+
+    public static function connection(string $host, string $database, string $username, ?string $password = null, ?int $port = null, string $driver = 'mysql')
+    {
+        $port = $port ?? self::parsePort($host);
+        $host = self::parseHost($host);
+
+        return DB::build([
+            'driver' => $driver,
+            'host' => $host,
+            'port' => $port,
+            'database' => $database,
+            'username' => $username,
+            'password' => $password,
+        ]);
     }
 
     public static function getListTable(Connection $connection)
@@ -170,6 +203,35 @@ class BackupDatabase
         }else{
             return [];
         }
+    }
+
+    public static function getListTableOptions(string $host, string $database, string $username, ?string $password, ?int $port = null)
+    {
+        $connection = self::connection(
+            host: $host,
+            database: $database,
+            username: $username,
+            password: $password,
+            port: $port
+        );
+        $options = self::getListTable($connection);
+
+        return array_combine($options, $options);
+    }
+
+    public static function getListViewOptions(string $host, string $database, string $username, ?string $password, ?int $port = null)
+    {
+        $connection = self::connection(
+            host: $host,
+            database: $database,
+            username: $username,
+            password: $password,
+            port: $port
+        );
+
+        $options = self::getListView($connection);
+
+        return array_combine($options, $options);
     }
 
     public static function getTableColumns(Connection $connection, string $table)

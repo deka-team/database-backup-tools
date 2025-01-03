@@ -17,15 +17,22 @@ class Database extends Model
 
     protected $fillable = [
         'name',
+        'database',
         'host',
         'username',
         'password',
         'is_active',
+        'is_selective',
+        'tables',
+        'views',
         'meta',
     ];
 
     protected $casts = [
         'is_active' => 'bool',
+        'is_selective' => 'bool',
+        'tables' => 'json',
+        'views' => 'json',
         'meta' => 'json'
     ];
 
@@ -52,7 +59,7 @@ class Database extends Model
     {
         $host = $this->getHost();
         $port = $this->getPort();
-        $database = $this->name;
+        $database = $this->database;
         $username = $this->username ?? config('database.connections.mysql.username');
         $password = $this->password ?? config('database.connections.mysql.password');
 
