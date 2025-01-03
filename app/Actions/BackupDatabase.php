@@ -84,17 +84,25 @@ class BackupDatabase
         $listTable = self::getListTable($connection);
         $listTableString = implode(' ', $listTable);
 
-        $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} --no-data > {$fullPathSql}";
-        $cmd2 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} --no-create-info --hex-blob --tables {$listTableString} >> {$fullPathSql}";
+        $listView = self::getListView($connection);
+        $listViewString = implode(' ', $listView);
 
-        $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
-        $cmd4 = "rm {$fullPathSql}";
+        $baseMysqldump = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName}";
+
+        $cmd1 = "{$baseMysqldump} --no-data --tables {$listTableString} > {$fullPathSql}";
+        $cmd2 = "{$baseMysqldump} --no-data --tables {$listViewString} | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> {$fullPathSql}";
+
+        $cmd3 = "{$baseMysqldump} --no-create-info --hex-blob --tables {$listTableString} >> {$fullPathSql}";
+
+        $cmd4 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
+        $cmd5 = "rm {$fullPathSql}";
 
         $output = Process::pipe(array_filter([
             $cmd1,
             $cmd2,
             $cmd3,
             $cmd4,
+            $cmd5,
         ]));
 
         if($error = $output->errorOutput()){
@@ -143,6 +151,18 @@ class BackupDatabase
     public static function getListTable(Connection $connection)
     {
         $result = $connection->select('SHOW FULL TABLES WHERE Table_Type = "BASE TABLE"');
+        $firstColumn = head(array_keys((array) ($result[0] ?? [])));
+
+        if($firstColumn){
+            return Arr::pluck($result, $firstColumn);
+        }else{
+            return [];
+        }
+    }
+
+    public static function getListView(Connection $connection)
+    {
+        $result = $connection->select('SHOW FULL TABLES WHERE Table_Type = "VIEW"');
         $firstColumn = head(array_keys((array) ($result[0] ?? [])));
 
         if($firstColumn){
