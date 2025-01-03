@@ -82,57 +82,19 @@ class BackupDatabase
         ]);
 
         $listTable = self::getListTable($connection);
-
-        $cmdData = [
-            // disable foreign key checks
-            "echo \"SET foreign_key_checks = 0;\" >> {$fullPathSql}",
-        ];
-
-        foreach($listTable as $table){
-
-            // skip pulse_* tables
-            if(Str::startsWith($table, 'pulse_')){
-                continue;
-            }
-
-            $columns = self::getTableColumns($connection, $table);
-            $insertedColumns = [];
-            foreach($columns as $column){
-
-                if(self::isBinaryColumn($column)){
-                    $insertedColumns[] = DB::raw("BINARY {$column->Field} AS {$column->Field}");
-                }else if(!self::isGeneratedColumn($column)){
-                    $insertedColumns[] = $column->Field;
-                }
-            }
-
-            try{
-                $output = BackupDumper::make($connection->table($table), $insertedColumns)->compile();
-            }catch(\Exception $e){
-                throw $e;
-            }
-
-
-            if(empty($output)){
-                continue;
-            }
-
-            $output = "-- START INSERT INTO {$table}\n\n{$output}\n-- END INSERT INTO {$table}\n\n";
-
-            $cmdData[] = str_replace("`", "\`", "echo \"{$output}\" >> {$fullPathSql}");
-        }
-
-        $cmdData[] = "echo \"SET foreign_key_checks = 1;\" >> {$fullPathSql}";
+        $listTableString = implode(' ', $listTable);
 
         $cmd1 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} --no-data > {$fullPathSql}";
-        $cmd2 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
-        $cmd3 = "rm {$fullPathSql}";
+        $cmd2 = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName} --no-create-info --hex-blob --tables {$listTableString} >> {$fullPathSql}";
+
+        $cmd3 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
+        $cmd4 = "rm {$fullPathSql}";
 
         $output = Process::pipe(array_filter([
             $cmd1,
-            ...$cmdData,
             $cmd2,
             $cmd3,
+            $cmd4,
         ]));
 
         if($error = $output->errorOutput()){
@@ -197,7 +159,8 @@ class BackupDatabase
 
     public static function isBinaryColumn($columnInfo)
     {
-        return Str::contains(strtolower($columnInfo->Type), 'binary');
+        $type = strtolower($columnInfo->Type);
+        return Str::contains($type, 'binary') || Str::contains($type, 'blob');
     }
 
     public static function isGeneratedColumn($columnInfo)
