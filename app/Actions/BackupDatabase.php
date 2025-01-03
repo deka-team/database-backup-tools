@@ -101,13 +101,15 @@ class BackupDatabase
         $cmd4 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
         $cmd5 = "rm {$fullPathSql}";
 
-        $output = Process::pipe(array_filter([
-            $cmd1,
-            $cmd2,
-            $cmd3,
-            $cmd4,
-            $cmd5,
-        ]));
+        $commands = [$cmd1, $cmd2, $cmd3, $cmd4, $cmd5];
+
+        $output = Process::pipe(function(Pipe $pipe) use ($commands) {
+            foreach($commands as $command){
+                if($command){
+                    $pipe->forever()->run($command);
+                }
+            }
+        });
 
         if($error = $output->errorOutput()){
             throw new \Exception($error);
