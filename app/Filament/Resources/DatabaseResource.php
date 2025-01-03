@@ -120,8 +120,7 @@ class DatabaseResource extends Resource
                         }
                     })
                     ->columnSpanFull()
-                    ->visible(fn(Get $get) => $get('is_selective'))
-                    ->required(),
+                    ->visible(fn(Get $get) => $get('is_selective')),
             ])
             ->columns(1)
             ->inlineLabel();
