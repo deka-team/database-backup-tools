@@ -11,6 +11,8 @@ class BackupDatabaseJob implements ShouldQueue
 {
     use Queueable;
 
+    public $timeout = 3600; // 1 hour
+
     /**
      * Create a new job instance.
      */
