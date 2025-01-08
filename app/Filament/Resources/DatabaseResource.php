@@ -201,6 +201,14 @@ class DatabaseResource extends Resource
                         ->label('Download Latest')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->url(fn (Model $record) => $record?->latestBackupUrl, shouldOpenInNewTab: true),
+                    Tables\Actions\ReplicateAction::make()
+                        ->excludeAttributes([
+                            'backups_count',
+                            'backups_sum_size',
+                        ])
+                        ->icon('heroicon-o-square-2-stack')
+                        ->modalDescription('Are you sure you want to replicate this database?')
+                        ->modalWidth('md'),
                     Tables\Actions\EditAction::make()
                         ->after(function(Model $record){
                             $success = $record->testConnection();
