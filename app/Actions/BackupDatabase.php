@@ -92,7 +92,7 @@ class BackupDatabase
 
         $baseMysqldump = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName}";
 
-        $cmd1 = "{$baseMysqldump} --no-data --tables {$listTableString} > {$fullPathSql}";
+        $cmd1 = "{$baseMysqldump} --no-data --skip-triggers --tables {$listTableString} > {$fullPathSql}";
 
         $cmd2 = count($listView) > 0 ? "{$baseMysqldump} --no-data --tables {$listViewString} | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> {$fullPathSql}" : null;
 
