@@ -98,10 +98,12 @@ class BackupDatabase
 
         $cmd3 = "{$baseMysqldump} --no-create-info --hex-blob --tables {$listTableString} >> {$fullPathSql}";
 
-        $cmd4 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
-        $cmd5 = "rm {$fullPathSql}";
+        $cmd4 = "{$baseMysqldump} --no-create-info --no-data --add-drop-trigger --triggers | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> {$fullPathSql}";
 
-        $commands = [$cmd1, $cmd2, $cmd3, $cmd4, $cmd5];
+        $cmd5 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
+        $cmd6 = "rm {$fullPathSql}";
+
+        $commands = [$cmd1, $cmd2, $cmd3, $cmd4, $cmd5, $cmd6];
 
         $output = Process::pipe(function(Pipe $pipe) use ($commands) {
             foreach($commands as $command){
