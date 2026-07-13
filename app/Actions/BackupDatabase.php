@@ -1,32 +1,24 @@
 <?php
 namespace App\Actions;
 
-use App\Models\Backup;
 use App\Models\Database;
-use Filament\Notifications\Notification;
-use Illuminate\Filesystem\Filesystem;
+use Illuminate\Database\Connection;
 use Illuminate\Process\Pipe;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Connection;
+use Illuminate\Support\Str;
 
 class BackupDatabase
 {
     public static function backup(Database | string $database, bool $view = false)
     {
-        if(is_string($database)){
-            $dbName = $database;
-        }else{
-            $dbName = $database->database;
-        }
+        $databaseModel = $database instanceof Database ? $database : null;
+        $dbName = (string) ($databaseModel ? $databaseModel->database : $database);
 
-        $backupNamePrefix = $database?->name ?: $dbName;
+        $backupNamePrefix = $databaseModel?->name ?: $dbName;
 
         $timestamp = Carbon::now()->format('Y-m-d__H-i-s');
         $backupName = "{$backupNamePrefix}__{$timestamp}";
@@ -36,11 +28,10 @@ class BackupDatabase
         $backupDisk = config('backup-tools.backup.disk', 'local');
         $prefix = config('backup-tools.backup.prefix', 'backup');
         $mysqldump = config('backup-tools.mysqldump', '/usr/bin/mysqldump');
-        $mysql = config('backup-tools.mysql', '/usr/bin/mysql');
         $gzip = config('backup-tools.gzip', '/usr/bin/gzip');
-        $dbHost = $database?->host ?? env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
-        $dbUsername = $database?->username ?? config('database.connections.mysql.username');
-        $dbPassword = $database?->password ?? config('database.connections.mysql.password');
+        $dbHost = $databaseModel?->host ?? env('DB_BACKUP_HOST', config('database.connections.mysql.host'));
+        $dbUsername = $databaseModel?->username ?? config('database.connections.mysql.username');
+        $dbPassword = $databaseModel?->password ?? config('database.connections.mysql.password');
 
         $dbPort = self::parsePort($dbHost);
         $dbHost = self::parseHost($dbHost);
@@ -71,39 +62,57 @@ class BackupDatabase
 
         $configFullPath = $localStorage->path($configPath);
 
-        if($database->is_selective){
-            $listTable = $database->tables ?? [];
-            $listView = $database->views ?? [];
+        $connection = self::connection(
+            host: $dbHost,
+            port: $dbPort,
+            database: $dbName,
+            username: $dbUsername,
+            password: $dbPassword
+        );
+
+        if($databaseModel?->is_selective){
+            $listTable = $databaseModel->tables ?? [];
+            $listView = $databaseModel->views ?? [];
         }else{
-            $connection = self::connection(
-                host: $dbHost,
-                port: $dbPort,
-                database: $dbName,
-                username: $dbUsername,
-                password: $dbPassword
-            );
-    
             $listTable = self::getListTable($connection);    
             $listView = self::getListView($connection);
         }
 
-        $listTableString = implode(' ', $listTable);
-        $listViewString = implode(' ', $listView);
+        $filters = self::normalizeBackupFilters($databaseModel);
+        $tableFilters = self::resolveTableFilters($connection, $listTable, $filters);
+        $backupMeta = count($filters) > 0 ? [
+            'backup_filters' => [
+                'enabled' => true,
+                'logic' => 'AND',
+                'filters' => $filters,
+                'tables' => $tableFilters,
+            ],
+        ] : null;
 
-        $baseMysqldump = "{$mysqldump} --defaults-extra-file={$configFullPath} -h {$dbHost} -P {$dbPort} -u {$dbUsername} {$dbName}";
+        $listTableString = self::shellArgs($listTable);
+        $listViewString = self::shellArgs($listView);
 
-        $cmd1 = "{$baseMysqldump} --no-data --skip-triggers --tables {$listTableString} > {$fullPathSql}";
+        $baseMysqldump = implode(' ', [
+            escapeshellarg($mysqldump),
+            '--defaults-extra-file=' . escapeshellarg($configFullPath),
+            '-h ' . escapeshellarg($dbHost),
+            '-P ' . escapeshellarg((string) $dbPort),
+            '-u ' . escapeshellarg($dbUsername),
+            escapeshellarg($dbName),
+        ]);
 
-        $cmd2 = count($listView) > 0 ? "{$baseMysqldump} --no-data --tables {$listViewString} | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> {$fullPathSql}" : null;
+        $cmd1 = "{$baseMysqldump} --no-data --skip-triggers --tables {$listTableString} > " . escapeshellarg($fullPathSql);
 
-        $cmd3 = "{$baseMysqldump} --no-create-info --hex-blob --tables {$listTableString} >> {$fullPathSql}";
+        $cmd2 = count($listView) > 0 ? "{$baseMysqldump} --no-data --tables {$listViewString} | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> " . escapeshellarg($fullPathSql) : null;
 
-        $cmd4 = "{$baseMysqldump} --no-create-info --no-data --add-drop-trigger --triggers | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> {$fullPathSql}";
+        $dataDumpCommands = self::buildDataDumpCommands($baseMysqldump, $listTable, $tableFilters, $fullPathSql);
 
-        $cmd5 = "cat {$fullPathSql} | {$gzip} > $fullPathGz";
-        $cmd6 = "rm {$fullPathSql}";
+        $cmd4 = "{$baseMysqldump} --no-create-info --no-data --add-drop-trigger --triggers | sed -E 's/DEFINER=[^ *]+/DEFINER=CURRENT_USER/g' >> " . escapeshellarg($fullPathSql);
 
-        $commands = [$cmd1, $cmd2, $cmd3, $cmd4, $cmd5, $cmd6];
+        $cmd5 = 'cat ' . escapeshellarg($fullPathSql) . ' | ' . escapeshellarg($gzip) . ' > ' . escapeshellarg($fullPathGz);
+        $cmd6 = 'rm ' . escapeshellarg($fullPathSql);
+
+        $commands = array_merge([$cmd1, $cmd2], $dataDumpCommands, [$cmd4, $cmd5, $cmd6]);
 
         $output = Process::pipe(function(Pipe $pipe) use ($commands) {
             foreach($commands as $command){
@@ -134,24 +143,25 @@ class BackupDatabase
                 $localStorage->delete($backupPath);
             }
 
-            if(is_string($database)){
+            if(!$databaseModel){
                 /** @disregard */
-                $database = Database::firstOrCreate([
+                $databaseModel = Database::firstOrCreate([
                     'name' => $backupNamePrefix,
                     'database' => $dbName,
                 ]);
             }
 
-            $database->backups()->create([
+            $databaseModel->backups()->create([
                 'name' => basename($fullPathGz),
                 'path' => $backupPath,
                 'disk' => $backupDisk,
                 'size' => $backupSize,
+                'meta' => $backupMeta,
             ]);
 
-            $database->touch();
+            $databaseModel->touch();
 
-            foreach($database->backups()->latest()->get() as $index => $backup){
+            foreach($databaseModel->backups()->latest()->get() as $index => $backup){
                 if($index >= intval(config('backup-tools.backup.max_files', 3))){
                     $backup->delete();
                 }
@@ -210,6 +220,111 @@ class BackupDatabase
         }
     }
 
+    public static function normalizeBackupFilters(?Database $database): array
+    {
+        if(!$database?->backup_filter_enabled){
+            return [];
+        }
+
+        $filters = [];
+
+        foreach($database->backup_filters ?? [] as $filter){
+            $column = trim((string) Arr::get($filter, 'column'));
+            $value = Arr::get($filter, 'value');
+
+            if($column === '' || $value === null || $value === ''){
+                continue;
+            }
+
+            self::validateFilterColumn($column);
+
+            $filters[] = [
+                'column' => $column,
+                'value' => (string) $value,
+            ];
+        }
+
+        return $filters;
+    }
+
+    public static function validateFilterColumn(string $column): void
+    {
+        if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column)){
+            throw new \InvalidArgumentException("Invalid backup filter column: {$column}");
+        }
+    }
+
+    public static function resolveTableFilters(Connection $connection, array $tables, array $filters): array
+    {
+        if(count($filters) === 0){
+            return [];
+        }
+
+        $tableFilters = [];
+
+        foreach($tables as $table){
+            $columns = self::getTableColumnNames($connection, $table);
+            $matchedFilters = array_values(array_filter(
+                $filters,
+                fn(array $filter) => in_array($filter['column'], $columns, true)
+            ));
+
+            $tableFilters[$table] = [
+                'filtered' => count($matchedFilters) > 0,
+                'filters' => $matchedFilters,
+                'where' => count($matchedFilters) > 0
+                    ? self::buildWhereClause($connection, $matchedFilters)
+                    : null,
+            ];
+        }
+
+        return $tableFilters;
+    }
+
+    public static function buildWhereClause(Connection $connection, array $filters): string
+    {
+        $conditions = array_map(function(array $filter) use ($connection){
+            return self::quoteIdentifier($filter['column']) . ' = ' . self::quoteValue($connection, $filter['value']);
+        }, $filters);
+
+        return implode(' AND ', $conditions);
+    }
+
+    public static function buildDataDumpCommands(string $baseMysqldump, array $tables, array $tableFilters, string $fullPathSql): array
+    {
+        $commands = [];
+
+        foreach($tables as $table){
+            $where = $tableFilters[$table]['where'] ?? null;
+            $command = "{$baseMysqldump} --no-create-info --hex-blob";
+
+            if($where){
+                $command .= ' --where=' . escapeshellarg($where);
+            }
+
+            $command .= ' --tables ' . escapeshellarg((string) $table) . ' >> ' . escapeshellarg($fullPathSql);
+
+            $commands[] = $command;
+        }
+
+        return $commands;
+    }
+
+    public static function shellArgs(array $values): string
+    {
+        return implode(' ', array_map(fn($value) => escapeshellarg((string) $value), $values));
+    }
+
+    public static function quoteIdentifier(string $identifier): string
+    {
+        return '`' . str_replace('`', '``', $identifier) . '`';
+    }
+
+    public static function quoteValue(Connection $connection, string $value): string
+    {
+        return $connection->getPdo()->quote($value);
+    }
+
     public static function getListTableOptions(string $host, string $database, string $username, ?string $password, ?int $port = null)
     {
         $connection = self::connection(
@@ -241,7 +356,12 @@ class BackupDatabase
 
     public static function getTableColumns(Connection $connection, string $table)
     {
-        return $connection->select("SHOW COLUMNS FROM {$table}");
+        return $connection->select('SHOW COLUMNS FROM ' . self::quoteIdentifier($table));
+    }
+
+    public static function getTableColumnNames(Connection $connection, string $table): array
+    {
+        return Arr::pluck(self::getTableColumns($connection, $table), 'Field');
     }
 
     public static function isBinaryColumn($columnInfo)

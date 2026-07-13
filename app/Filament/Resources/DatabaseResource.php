@@ -121,6 +121,35 @@ class DatabaseResource extends Resource
                     })
                     ->columnSpanFull()
                     ->visible(fn(Get $get) => $get('is_selective')),
+                Forms\Components\Toggle::make('backup_filter_enabled')
+                    ->label('Filter Data Backup')
+                    ->live()
+                    ->afterStateUpdated(function(Set $set, ?bool $state){
+                        if(!$state){
+                            $set('backup_filters', []);
+                        }
+                    })
+                    ->columnSpanFull(),
+                Forms\Components\Repeater::make('backup_filters')
+                    ->label('Backup Filters')
+                    ->schema([
+                        Forms\Components\TextInput::make('column')
+                            ->label('Column')
+                            ->placeholder('tahun')
+                            ->required()
+                            ->regex('/^[A-Za-z_][A-Za-z0-9_]*$/')
+                            ->validationMessages([
+                                'regex' => 'Column hanya boleh berisi huruf, angka, dan underscore, serta tidak boleh diawali angka.',
+                            ]),
+                        Forms\Components\TextInput::make('value')
+                            ->label('Value')
+                            ->placeholder('2026')
+                            ->required(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->visible(fn(Get $get) => $get('backup_filter_enabled'))
+                    ->required(fn(Get $get) => $get('backup_filter_enabled')),
             ])
             ->columns(1)
             ->inlineLabel();

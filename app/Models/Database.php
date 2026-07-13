@@ -25,14 +25,18 @@ class Database extends Model
         'is_selective',
         'tables',
         'views',
+        'backup_filter_enabled',
+        'backup_filters',
         'meta',
     ];
 
     protected $casts = [
         'is_active' => 'bool',
         'is_selective' => 'bool',
+        'backup_filter_enabled' => 'bool',
         'tables' => 'json',
         'views' => 'json',
+        'backup_filters' => 'json',
         'meta' => 'json'
     ];
 
